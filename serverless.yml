@@ -1,0 +1,88 @@
+service: charles-websocket-authorizer
+
+provider:
+  name: aws
+  stage: dev
+  runtime: nodejs12.x
+  region: us-west-2
+  memorySize: 128
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - "execute-api:ManageConnections"
+      Resource:
+        - "arn:aws:execute-api:*:*:**/@connections/*"
+    - Effect: Allow
+      Action:
+        - "dynamodb:PutItem"
+        - "dynamodb:GetItem"
+        - "dynamodb:UpdateItem"
+        - "dynamodb:DeleteItem"
+        - "dynamodb:BatchGetItem"
+        - "dynamodb:BatchWriteItem"
+        - "dynamodb:Query"
+      Resource:
+        - Fn::GetAtt: [ChatDynamoDBTable, Arn]
+        - Fn::Join:
+            - '/'
+            - - Fn::GetAtt: [ChatDynamoDBTable, Arn]
+              - '*'
+
+functions:
+  connect:
+    handler: handler.connect
+    events:
+      - websocket:
+          route: $connect # authorizers are only for connect routes
+          authorizer:
+            name: auth
+            identitySource:
+              - "route.request.header.Auth"
+  disconnect:
+    handler: handler.disconnect
+    events:
+      - websocket:
+          route: $disconnect
+  sendMessage:
+    handler: handler.sendMessage
+    events:
+      - websocket:
+          route: sendMessage
+  default:
+    handler: handler.default
+    events:
+      - websocket:
+          route: $default
+  auth:
+    handler: handler.auth
+
+resources:
+  Resources:
+    ChatDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: type
+            AttributeType: S
+          - AttributeName: connectionId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: type
+            KeyType: HASH
+          - AttributeName: connectionId
+            KeyType: RANGE
+        LocalSecondaryIndexes:
+        - IndexName: type-userId-index
+          KeySchema:
+          - AttributeName: type
+            KeyType: HASH
+          - AttributeName: userId
+            KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ws-demo-chat
