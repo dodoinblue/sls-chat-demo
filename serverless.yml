@@ -24,9 +24,9 @@ provider:
       Resource:
         - Fn::GetAtt: [ChatDynamoDBTable, Arn]
         - Fn::Join:
-            - '/'
+            - "/"
             - - Fn::GetAtt: [ChatDynamoDBTable, Arn]
-              - '*'
+              - "*"
 
 functions:
   connect:
@@ -48,6 +48,17 @@ functions:
     events:
       - websocket:
           route: sendMessage
+  channel:
+    handler: handler.channel
+    events:
+      - websocket:
+          route: channelCreate
+      - websocket:
+          route: channelJoin
+      - websocket:
+          route: channelLeave
+      - websocket:
+          route: sendMessageChannel
   default:
     handler: handler.default
     events:
@@ -59,7 +70,7 @@ functions:
 resources:
   Resources:
     ChatDynamoDBTable:
-      Type: 'AWS::DynamoDB::Table'
+      Type: "AWS::DynamoDB::Table"
       Properties:
         AttributeDefinitions:
           - AttributeName: type
@@ -74,14 +85,14 @@ resources:
           - AttributeName: connectionId
             KeyType: RANGE
         LocalSecondaryIndexes:
-        - IndexName: type-userId-index
-          KeySchema:
-          - AttributeName: type
-            KeyType: HASH
-          - AttributeName: userId
-            KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
+          - IndexName: type-userId-index
+            KeySchema:
+              - AttributeName: type
+                KeyType: HASH
+              - AttributeName: userId
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
